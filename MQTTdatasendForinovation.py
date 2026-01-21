@@ -36,6 +36,24 @@ engine = {
     "engine_h": 300.0,
 }
 
+# -------- Load / Save Hours --------
+HOUR_FILE = "hours.json"
+
+def load_hours():
+    try:
+        with open(HOUR_FILE, "r") as f:
+            data = json.load(f)
+            engine["engine_h"] = data.get("engine_h", engine["engine_h"])
+            print("✅ Loaded engine_h:", engine["engine_h"])
+    except:
+        print("⚠ No previous hour file, using default.")
+
+def save_hours():
+    with open(HOUR_FILE, "w") as f:
+        json.dump({"engine_h": engine["engine_h"]}, f)
+
+load_hours()
+
 # -------- Fault Model --------
 FAULTS = [
     {"spn": 100, "fmi": 1, "desc": "Engine Oil Pressure Low"},
@@ -91,11 +109,9 @@ def update_engine():
         engine["torque"] = 0
         engine["oil_pressure"] = max(0, engine["oil_pressure"] - 20)
 
-    # Random start/stop
     if random.random() < 0.005:
         engine["on"] = not engine["on"]
 
-    # ---- Fault lifecycle ----
     if active_fault:
         fault_timer -= 1
         if fault_timer <= 0:
@@ -105,7 +121,6 @@ def update_engine():
             active_fault = random.choice(FAULTS)
             fault_timer = random.randint(5, 20)
 
-    # ---- Fault impact ----
     if active_fault:
         if active_fault["spn"] == 100:
             engine["oil_pressure"] *= 0.7
@@ -120,27 +135,21 @@ def generate_payload():
 
     payload = {
         "Device_ID": "AP550",
-
         "Engine_status": "ON" if engine["on"] else "OFF",
         "Engine_rpm": int(engine["rpm"]),
         "Engine_load": round(engine["load"] * 100, 1),
         "Engine_torque": round(engine["torque"], 1),
         "Boost_bar": round(engine["boost"], 2),
-
         "fuel_level": round(engine["fuel"], 1),
         "def_level": round(engine["adblue"], 1),
-
         "Coolant_temp": round(engine["coolant"], 1),
         "Oil_temp": round(engine["oil_temp"], 1),
         "oil_Pressure": round(engine["oil_pressure"], 1),
         "Exhaust_temp": round(engine["exhaust_temp"], 1),
-
         "battery": round(engine["battery"], 2),
         "alternator_v": round(engine["alternator"], 2),
         "vibration": round(engine["vibration"], 2),
-
         "engine_h": round(engine["engine_h"], 2),
-
         "lat": "23.0225",
         "lon": "72.5714",
     }
@@ -174,7 +183,9 @@ while True:
         payload = generate_payload()
         client.publish(TOPIC, payload)
         print("➡ Sent:", payload)
+        save_hours()
         time.sleep(PUBLISH_INTERVAL)
     else:
-        print("⏹ Outside working hours. Exiting.")
+        print("⏹ Outside working hours. Saving hours and exiting.")
+        save_hours()
         break
