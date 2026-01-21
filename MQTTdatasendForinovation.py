@@ -36,7 +36,21 @@ engine = {
     "engine_h": 300.0,
 }
 
+# -------- Fault Model --------
+FAULTS = [
+    {"spn": 100, "fmi": 1, "desc": "Engine Oil Pressure Low"},
+    {"spn": 110, "fmi": 0, "desc": "Coolant Temperature High"},
+    {"spn": 157, "fmi": 18, "desc": "Fuel Pressure Low"},
+    {"spn": 190, "fmi": 3, "desc": "Engine Overspeed"},
+    {"spn": 97,  "fmi": 4, "desc": "Water In Fuel"},
+]
+
+active_fault = None
+fault_timer = 0
+
 def update_engine():
+    global active_fault, fault_timer
+
     if engine["on"]:
         target_rpm = random.randint(1600, 2200)
         engine["rpm"] += (target_rpm - engine["rpm"]) * 0.08
@@ -77,8 +91,28 @@ def update_engine():
         engine["torque"] = 0
         engine["oil_pressure"] = max(0, engine["oil_pressure"] - 20)
 
+    # Random start/stop
     if random.random() < 0.005:
         engine["on"] = not engine["on"]
+
+    # ---- Fault lifecycle ----
+    if active_fault:
+        fault_timer -= 1
+        if fault_timer <= 0:
+            active_fault = None
+    else:
+        if random.random() < 0.02:
+            active_fault = random.choice(FAULTS)
+            fault_timer = random.randint(5, 20)
+
+    # ---- Fault impact ----
+    if active_fault:
+        if active_fault["spn"] == 100:
+            engine["oil_pressure"] *= 0.7
+        elif active_fault["spn"] == 110:
+            engine["coolant"] += 1.5
+        elif active_fault["spn"] == 190:
+            engine["rpm"] = min(engine["rpm"] + 300, 2600)
 
 def generate_payload():
     update_engine()
@@ -86,11 +120,13 @@ def generate_payload():
 
     payload = {
         "Device_ID": "AP550",
+
         "Engine_status": "ON" if engine["on"] else "OFF",
         "Engine_rpm": int(engine["rpm"]),
         "Engine_load": round(engine["load"] * 100, 1),
         "Engine_torque": round(engine["torque"], 1),
         "Boost_bar": round(engine["boost"], 2),
+
         "fuel_level": round(engine["fuel"], 1),
         "def_level": round(engine["adblue"], 1),
 
@@ -107,13 +143,18 @@ def generate_payload():
 
         "lat": "23.0225",
         "lon": "72.5714",
-
-        "engine_dtc": "0/0/0",
-        "ttc_dtc": "0/0/0",
-
-        "time": now.strftime("%d-%m-%Y %I:%M:%S %p"),
-        "timezone": "Asia/Kolkata"
     }
+
+    if active_fault:
+        payload["engine_dtc"] = f'{active_fault["spn"]}/{active_fault["fmi"]}'
+        payload["dtc_desc"] = active_fault["desc"]
+    else:
+        payload["engine_dtc"] = "0/0"
+        payload["dtc_desc"] = "NO FAULT"
+
+    payload["time"] = now.strftime("%d-%m-%Y %I:%M:%S %p")
+    payload["timezone"] = "Asia/Kolkata"
+
     return json.dumps(payload)
 
 # ================= MQTT =================
