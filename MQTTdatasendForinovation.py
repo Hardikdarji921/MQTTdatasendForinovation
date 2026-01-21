@@ -12,6 +12,9 @@ TOPIC = "Datalogger/AP550/Data"
 CLIENT_ID = "python_dummy_datalogger"
 PUBLISH_INTERVAL = 20
 # ==========================================
+IST = ZoneInfo("Asia/Kolkata")
+START = dtime(9, 0)    # 09:00 IST
+END = dtime(18, 0)     # 18:00 IST
 
 def generate_payload():
     now = datetime.now(ZoneInfo("Asia/Kolkata"))
@@ -75,10 +78,20 @@ client.loop_start()
 
 print("🔥 Dummy MQTT sender running (FULL ESP32 PAYLOAD)")
 
+
 while True:
-    payload = generate_payload()
-    client.publish(TOPIC, payload)
-    print("➡ Sent:", payload)
-    time.sleep(PUBLISH_INTERVAL)
+    now_dt = datetime.now(IST)
+    now_time = now_dt.time()
+    weekday = now_dt.weekday()  # 0=Mon, 6=Sun
+
+    if 0 <= weekday <= 4 and START <= now_time <= END:
+        payload = generate_payload()
+        client.publish(TOPIC, payload)
+        print("➡ Sent:", payload)
+        time.sleep(PUBLISH_INTERVAL)
+    else:
+        print("⏹ Outside working hours. Exiting.")
+        break
+
 
 
