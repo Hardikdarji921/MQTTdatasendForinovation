@@ -14,7 +14,7 @@ PUBLISH_INTERVAL = 20
 # ==========================================
 
 def generate_payload():
-    now = datetime.now(ZoneInfo("Asia/Kolkata"))()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
 
     payload = {
         # ---- Device ----
@@ -80,4 +80,5 @@ while True:
     client.publish(TOPIC, payload)
     print("➡ Sent:", payload)
     time.sleep(PUBLISH_INTERVAL)
+
 
