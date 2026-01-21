@@ -3,6 +3,7 @@ import random
 import time
 from datetime import datetime
 import paho.mqtt.client as mqtt
+from zoneinfo import ZoneInfo
 
 # ================= CONFIG =================
 BROKER = "broker.emqx.io"
@@ -13,7 +14,7 @@ PUBLISH_INTERVAL = 20
 # ==========================================
 
 def generate_payload():
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))()
 
     payload = {
         # ---- Device ----
@@ -79,3 +80,4 @@ while True:
     client.publish(TOPIC, payload)
     print("➡ Sent:", payload)
     time.sleep(PUBLISH_INTERVAL)
+
