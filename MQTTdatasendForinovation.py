@@ -179,13 +179,20 @@ while True:
     now_time = now_dt.time()
     weekday = now_dt.weekday()
 
+    # Check if it is Monday-Friday AND between 9 AM and 6 PM
     if 0 <= weekday <= 4 and START <= now_time <= END:
         payload = generate_payload()
         client.publish(TOPIC, payload)
-        print("➡ Sent:", payload)
+        print(f"➡ Sent at {now_time}: {payload}")
         save_hours()
         time.sleep(PUBLISH_INTERVAL)
     else:
-        print("⏹ Outside working hours. Saving hours and exiting.")
-        save_hours()
-        break
+        # Instead of 'break', we just wait and check again later
+        if now_time > END or weekday > 4:
+            print(f"⏹ Outside hours ({now_time}). Sleeping for 1 minute...", end="\r")
+        else:
+            print(f"⏳ Before shift ({now_time}). Waiting for 9:00 AM...", end="\r")
+            
+        save_hours() # Ensure hours are saved
+        time.sleep(60) # Check every minute until it's 9:00 AM again
+
